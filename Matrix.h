@@ -44,7 +44,10 @@ public:
     void Input() ;
     void addElement(int length, int addingRow, int addingCol, int addingValue);
     void Print();
+    Matrix toSparse(int** arr,int rows,int cols);
+    int countNonzeros(int **arr,int rows,int cols);
     int ** toNormalMtx() const;
+
 
 
     Matrix &operator=(const Matrix &);
@@ -67,9 +70,9 @@ public:
 
     friend Matrix operator*(const Matrix &, const Matrix &);
 
-    friend Matrix operator==(const Matrix &, const Matrix &);
-
-    friend Matrix operator!=(const Matrix &, const Matrix &);
+//    friend Matrix operator==(const Matrix &, const Matrix &);
+//
+//    friend  Matrix operator!=(const Matrix &, const Matrix &);
 
 
 };
