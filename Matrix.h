@@ -1,7 +1,6 @@
-
+#ifndef RGZLANG_MATRIX_H
+#define RGZLANG_MATRIX_H
 #include <iostream>
-
-const int DEFAULT_SIZE = 10;
 using namespace std;
 
 class Matrix {
@@ -12,8 +11,6 @@ class Matrix {
     int *itsCols;
     int *itsValues;
     int itsLength;
-
-
 
 public:
 
@@ -40,39 +37,25 @@ public:
 
     void Create();
     void Create(int nonZeros);
-
     void Input() ;
     void addElement(int length, int addingRow, int addingCol, int addingValue);
-    void Print();
-    Matrix toSparse(int** arr,int rows,int cols);
+    void Print()const;
+    void toSparse(int** arr,int rows,int cols);
     int countNonzeros(int **arr,int rows,int cols);
     int ** toNormalMtx() const;
 
 
-
-    Matrix &operator=(const Matrix &);
-
-    Matrix &operator+=(const Matrix &);
-
-    Matrix &operator-=(const Matrix &);
-
-    Matrix &operator*=(const Matrix &);
-
-    Matrix &operator/=(const Matrix &);
-
     Matrix &operator++();
-
     Matrix &operator--();
 
+    Matrix &operator+=(const Matrix &);
+    Matrix &operator-=(const Matrix &);
+    Matrix &operator*=(const Matrix &);
     friend Matrix operator+(const Matrix &, const Matrix &);
-
     friend Matrix operator-(const Matrix &, const Matrix &);
-
     friend Matrix operator*(const Matrix &, const Matrix &);
-
-//    friend Matrix operator==(const Matrix &, const Matrix &);
-//
-//    friend  Matrix operator!=(const Matrix &, const Matrix &);
-
-
+    friend int operator==(const Matrix &, const Matrix &);
+    friend int operator!=(const Matrix &, const Matrix &);
+    friend std::ostream& operator<< (std::ostream &out, const Matrix &matrix);
 };
+#endif //RGZLANG_MATRIX_H

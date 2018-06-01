@@ -1,11 +1,10 @@
 #include "Matrix.h"
-
-
 Matrix::Matrix() {
     Create();
     itsRows[0] = -1;
     itsCols[0] = -1;
     itsValues[0] = -1;
+    itsLength = 1;
 }
 
 Matrix::Matrix(int nonZero) {
@@ -17,19 +16,21 @@ Matrix::Matrix(int nonZero) {
 
 Matrix::Matrix(const Matrix &original) {
 
-    int *itsOldValues = original.getValues();
-    int *itsOldCols = original.getCols();
-    int *itsOldRows = original.getRows();
-
-    int nonZeros = getLength();
-    Create(nonZeros);
-
-    setItsValues(itsOldValues);
-    setItsRows(itsOldRows);
-    setItsCols(itsOldCols);
+    this->itsValues = original.getValues();
+    this->itsCols = original.getCols();
+    this->itsRows = original.getRows();
+    this->itsLength = original.getLength();
+    this->itsNumberOfColumns = original.getItsNumberOfColumns();
+    this->itsNumberOfRows = original.getItsNumberOfRows();
 }
 
-Matrix::~Matrix() = default;
+Matrix::~Matrix(){
+    delete[] itsCols;
+    delete[] itsRows;
+    delete[] itsValues;
+
+};
+
 
 void Matrix::Create() {
     itsValues = new int[1];
@@ -127,13 +128,13 @@ void Matrix::Input() {
             if (Value != 0) {
                 addElement(length, i, j, Value);
                 length++;
-                setLength(length);
+                setLength(length - 1);
             }
         }
     }
 }
 
-void Matrix::Print() {
+void Matrix::Print()const {
     int *pRows;
     int *pCols;
     int *pValues;
@@ -155,8 +156,6 @@ void Matrix::Print() {
                 cout << "0 ";
             }
         }
-
-
     }
 }
 
@@ -184,11 +183,56 @@ int **Matrix::toNormalMtx() const {
     }
 
 
-    for (int i = 0; i < nonzeros;) {
-        matr[*(prows + i)][*(pcols + i)] = pvalues[*(pvalues + i)];
+    for (int i = 0; i < nonzeros; i++) {
+        matr[prows[i]][pcols[i]] = pvalues[i];
     }
     return matr;
 }
+
+void Matrix::toSparse(int **arr, int rows, int cols) {
+
+    int size = countNonzeros(arr, rows, cols);
+    auto *prows = new int[size];
+    auto *pcols = new int[size];
+    auto *pvals = new int[size];
+    int bigIndex = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (arr[i][j] != 0) {
+                prows[bigIndex] = i;//like a arr[i]=i;
+                pcols[bigIndex] = j;
+                pvals[bigIndex] = arr[i][j];
+                bigIndex++;
+            }
+        }
+    }
+    Matrix::itsValues = pvals;
+    Matrix::itsCols = pcols;
+    Matrix::itsRows = prows;
+    Matrix::itsLength = size;
+    Matrix::itsNumberOfRows = rows;
+    Matrix::itsNumberOfColumns = cols;
+
+    prows = pcols = pvals = nullptr;
+    delete prows;
+    delete pcols;
+    delete pvals;
+
+
+}
+
+int Matrix::countNonzeros(int **arr, int rows, int cols) {
+    int count = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (arr[i][j] != 0) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
 
 void Matrix::setItsRows(int *itsRows) {
     Matrix::itsRows = itsRows;
@@ -228,8 +272,7 @@ int *Matrix::getValues() const {
 }
 
 int Matrix::getLength() const {
-    int *check = getValues();
-    return sizeof(check) / sizeof(check[0]);
+    return itsLength;
 }
 
 int Matrix::getItsNumberOfRows() const {
@@ -241,20 +284,20 @@ int Matrix::getItsNumberOfColumns() const {
 }
 
 
-Matrix &Matrix::operator=(const Matrix &right) {
-    if (this == &right) {
-        return *this;
-    }
-    Create(right.itsLength);
-    for (int i = 0; i < itsLength; i++) {
-        itsRows[i] = right.itsRows[i];
-        itsCols[i] = right.itsCols[i];
-        itsValues[i] = right.itsValues[i];
-    }
-    return *this;
-}
+//Matrix &Matrix::operator=(const Matrix &right) {
+//    if (this == &right) {
+//        return *this;
+//    }
+//    Matrix::Matrix(const Matrix &right);
+////    Create(right.itsLength);
+////    for (int i = 0; i < itsLength; i++) {
+////        itsRows[i] = right.itsRows[i];
+////        itsCols[i] = right.itsCols[i];
+////        itsValues[i] = right.itsValues[i];
+////    }
+//    return *this;
+//}
 
-//
 Matrix &Matrix::operator+=(const Matrix &right) {
     if (this == &right) {
         return *this;
@@ -275,21 +318,24 @@ Matrix &Matrix::operator+=(const Matrix &right) {
             }
         }
 
+        this->toSparse(L_Mtx, L_Rows, L_Columns);
+
+
+
+        for (int i = 0; i < getItsNumberOfRows(); i++)
+            delete L_Mtx[i];
+        delete[] L_Mtx;
+        for (int i = 0; i < right.getItsNumberOfRows(); i++)
+            delete R_Mtx[i];
+        delete[] R_Mtx;
+
+        return *this;
     } else {
         cout << "Matrices do not match" << endl;
     }
 
-    L_Mtx = R_Mtx = nullptr;
-    for (int i = 0; i < getItsNumberOfRows(); i++)
-        delete L_Mtx[i];
-    delete[] L_Mtx;
-    for (int i = 0; i < right.getItsNumberOfRows(); i++)
-        delete R_Mtx[i];
-    delete[] R_Mtx;
 
-    return *this;
 }
-
 
 Matrix &Matrix::operator-=(const Matrix &right) {
     if (this == &right) {
@@ -310,15 +356,20 @@ Matrix &Matrix::operator-=(const Matrix &right) {
                 L_Mtx[i][j] -= R_Mtx[i][j];
             }
         }
+        this->toSparse(L_Mtx, L_Rows, L_Columns);
+
+
+
+        for (int i = 0; i < getItsNumberOfRows(); i++)
+            delete L_Mtx[i];
+        delete[] L_Mtx;
+        for (int i = 0; i < right.getItsNumberOfRows(); i++)
+            delete R_Mtx[i];
+        delete[] R_Mtx;
+        return *this;
     } else cout << "Matrices do not match" << endl;
-    L_Mtx = R_Mtx = nullptr;
-    for (int i = 0; i < getItsNumberOfRows(); i++)
-        delete L_Mtx[i];
-    delete[] L_Mtx;
-    for (int i = 0; i < right.getItsNumberOfRows(); i++)
-        delete R_Mtx[i];
-    delete[] R_Mtx;
-    return *this;
+
+
 }
 
 Matrix &Matrix::operator*=(const Matrix &right) {
@@ -340,48 +391,22 @@ Matrix &Matrix::operator*=(const Matrix &right) {
                 L_Mtx[i][j] *= R_Mtx[i][j];
             }
         }
-    } else cout << "Matrices do not match" << endl;
-    L_Mtx = R_Mtx = nullptr;
-    for (int i = 0; i < getItsNumberOfRows(); i++)
-        delete L_Mtx[i];
-    delete[] L_Mtx;
-    for (int i = 0; i < right.getItsNumberOfRows(); i++)
-        delete R_Mtx[i];
-    delete[] R_Mtx;
-    return *this;
-}
+        this->toSparse(L_Mtx, L_Rows, L_Columns);
 
-Matrix &Matrix::operator/=(const Matrix &right) {
-    if (this == &right) {
+
+
+        for (int i = 0; i < getItsNumberOfRows(); i++)
+            delete[] L_Mtx[i];
+        delete[] L_Mtx;
+        for (int i = 0; i < right.getItsNumberOfRows(); i++)
+            delete R_Mtx[i];
+        delete[] R_Mtx;
         return *this;
-    }
-
-    int **R_Mtx = right.toNormalMtx();
-    int R_Rows = right.getItsNumberOfRows();
-    int R_Columns = right.getItsNumberOfColumns();
-
-    int **L_Mtx = this->toNormalMtx();//??
-    int L_Rows = this->getItsNumberOfRows();
-    int L_Columns = this->getItsNumberOfColumns();
-
-    if ((L_Rows == R_Rows) && (L_Columns == R_Columns)) {
-        for (int i = 0; i < L_Rows; i++) {
-            for (int j = 0; j < L_Columns; j++) {
-                L_Mtx[i][j] /= R_Mtx[i][j];
-            }
-        }
     } else cout << "Matrices do not match" << endl;
-    L_Mtx = nullptr;
-    for (int i = 0; i < getItsNumberOfRows(); i++)
-        delete L_Mtx[i];
-    delete[] L_Mtx;
-    R_Mtx = nullptr;
-    for (int i = 0; i < right.getItsNumberOfRows(); i++)
-        delete R_Mtx[i];
-    delete[] R_Mtx;
 
-    return *this;
+
 }
+
 
 Matrix &Matrix::operator++() {
 
@@ -391,7 +416,12 @@ Matrix &Matrix::operator++() {
             ++L_Mtx[i][j];
         }
     }
-    L_Mtx = nullptr;
+
+
+    this->toSparse(L_Mtx, getItsNumberOfRows(), getItsNumberOfColumns());
+
+
+
     for (int i = 0; i < getItsNumberOfRows(); i++)
         delete L_Mtx[i];
     delete[] L_Mtx;
@@ -406,7 +436,12 @@ Matrix &Matrix::operator--() {
             --L_Mtx[i][j];
         }
     }
-    L_Mtx = nullptr;
+
+
+    this->toSparse(L_Mtx, getItsNumberOfRows(), getItsNumberOfColumns());
+
+
+    // L_Mtx = nullptr;
     for (int i = 0; i < getItsNumberOfRows(); i++)
         delete L_Mtx[i];
     delete[] L_Mtx;
@@ -424,134 +459,147 @@ Matrix operator+(const Matrix &a, const Matrix &b) {
     int Columns1 = a.getItsNumberOfColumns();
     int Rows2 = b.getItsNumberOfRows();
     int Columns2 = b.getItsNumberOfColumns();
+
     if ((Rows1 == Rows2) && (Columns1 == Columns2)) {
         for (int i = 0; i < Columns1; i++) {
             for (int j = 0; j < Rows1; j++) {
                 cMtx[i][j] = aMtx[i][j] + bMtx[i][j];
             }
         }
+        c.toSparse(cMtx, Rows1, Columns1);
+        return c;
     } else cout << "Matrices do not match" << endl;
-    return c;
+
 }
 
-//Matrix operator-(const Matrix &a, const Matrix &b) {
-//    Matrix c(a);
-//    int Lines1 = a.getNumberOfLines();
-//    int Columns1 = a.getNumberOfColumns();
-//    int Lines2 = b.getNumberOfLines();
-//    int Columns2 = b.getNumberOfColumns();
-//    if ((Lines1 == Lines2) && (Columns1 == Columns2)) {
-//        for (int i = 0; i < Columns1; i++) {
-//            for (int j = 0; j < Lines1; j++) {
-//                c.ptrSomeMatrix[i][j] = a.ptrSomeMatrix[i][j] - b.ptrSomeMatrix[i][j];
-//            }
-//        }
-//    } else cout << "Matrices do not match" << endl;
-//    return c;
-//}
-//
-//Matrix operator*(const Matrix &a, const Matrix &b) {
-//    int Lines1 = a.getNumberOfLines();
-//    int Columns1 = a.getNumberOfColumns();
-//    int Lines2 = b.getNumberOfLines();
-//    int Columns2 = b.getNumberOfColumns();
-//    Matrix c(Lines1, Columns2);
-//    if (Columns1 == Lines2) {
-//        for (int i = 0; i < Columns2; i++)
-//            for (int j = 0; j < Lines1; j++) {
-//                c.ptrSomeMatrix[i][j] = 0;
-//                for (int k = 0; k < Columns1; k++)
-//                    c.ptrSomeMatrix[i][j] += a.ptrSomeMatrix[i][k] * b.ptrSomeMatrix[k][j];
-//            }
-//    } else cout << "Matrices do not match" << endl;
-//    return c;
-//}
+Matrix operator-(const Matrix &a, const Matrix &b) {
+    Matrix c(a);
 
-//Matrix operator==(const Matrix &a, const Matrix &b) {
-//    int Lines1 = a.getNumberOfLines();
-//    int Columns1 = a.getNumberOfColumns();
-//    int Lines2 = b.getNumberOfLines();
-//    int Columns2 = b.getNumberOfColumns();
-//    int k = 0;
-//    if ((Columns1 == Columns2) && (Lines1 == Lines2)) {
-//        for (int i = 0; i < Columns1; i++) {
-//            for (int j = 0; j < Lines1; j++) {
-//                if (a.ptrSomeMatrix[i][j] != b.ptrSomeMatrix[i][j]) k++;
-//            }
-//        }
-//        if (k) {
-//            cout << "Matrices are not equal to each other" << endl;
-//            return 0;
-//        } else {
-//            cout << "Matrices are equal" << endl;
-//            return 1;
-//        }
-//    } else {
-//        cout << "Matrices are not equal to each other" << endl;
-//        return 0;
-//    }
-//}
-//
-// Matrix operator!=(const Matrix &a, const Matrix &b) {
-//    int Lines1 = a.getNumberOfLines();
-//    int Columns1 = a.getNumberOfColumns();
-//    int Lines2 = b.getNumberOfLines();
-//    int Columns2 = b.getNumberOfColumns();
-//    int k = 0;
-//    if ((Columns1 == Columns2) && (Lines1 == Lines2)) {
-//        for (int i = 0; i < Columns1; i++) {
-//            for (int j = 0; j < Lines1; j++) {
-//                if (a.ptrSomeMatrix[i][j] != b.ptrSomeMatrix[i][j]) k++;
-//            }
-//        }
-//        if (k) {
-//            cout << "Matrices are not equal to each other" << endl;
-//            return 1;
-//        } else {
-//            cout << "Matrices are equal" << endl;
-//            return 0;
-//        }
-//    } else {
-//        cout << "Matrices are not equal to each other" << endl;
-//        return 1;
-//    }
-//}
-Matrix::toSparse(int **arr, int rows, int cols) {
-    Matrix A();
-    int size = countNonzeros(arr, rows, cols);
-    int *prows = new int[size];
-    int *pcols = new int[size];
-    int *pvals = new int[size];
-    int bigIndex = 0;
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            if (arr[i][j] != 0) {
-                prows[*(prows + bigIndex)] = i;//like a arr[i]=i;
-                pcols[*(prows + bigIndex)] = j;
-                pvals[*(prows + bigIndex)] = arr[i][j];
+    int **aMtx = a.toNormalMtx();
+    int **bMtx = b.toNormalMtx();
+    int **cMtx = c.toNormalMtx();
+    int Rows1 = a.getItsNumberOfRows();
+    int Columns1 = a.getItsNumberOfColumns();
+    int Rows2 = b.getItsNumberOfRows();
+    int Columns2 = b.getItsNumberOfColumns();
+
+    if ((Rows1 == Rows2) && (Columns1 == Columns2)) {
+        for (int i = 0; i < Columns1; i++) {
+            for (int j = 0; j < Rows1; j++) {
+                cMtx[i][j] = aMtx[i][j] - bMtx[i][j];
+            }
+        }
+        c.toSparse(cMtx, Rows1, Columns1);
+        return c;
+    } else cout << "Matrices do not match" << endl;
+
+
+}
+
+Matrix operator*(const Matrix &a, const Matrix &b) {
+    Matrix c;
+    c = a;
+    int **aMtx = a.toNormalMtx();
+    int **bMtx = b.toNormalMtx();
+    int **cMtx = c.toNormalMtx();
+    int Rows1 = a.getItsNumberOfRows();
+    int Columns1 = a.getItsNumberOfColumns();
+    int Rows2 = b.getItsNumberOfRows();
+    if (Columns1 == Rows2) {
+        for (int i = 0; i < Rows2; i++) {
+            for (int j = 0; j < Columns1; j++) {
+                cMtx[i][j] = 0;
+                for (int k = 0; k < Rows1; k++) {
+                    cMtx[i][j] += aMtx[i][k] * bMtx[k][j];
+                }
+            }
+        }
+        c.toSparse(cMtx, Rows2, Columns1);
+        return c;
+    } else cout << "Matrices do not match" << endl;
+
+}
+
+int operator==(const Matrix &a, const Matrix &b) {
+    int **aMtx = a.toNormalMtx();
+    int **bMtx = b.toNormalMtx();
+
+    int Rows1 = a.getItsNumberOfRows();
+    int Columns1 = a.getItsNumberOfColumns();
+    int Rows2 = b.getItsNumberOfRows();
+    int Columns2 = b.getItsNumberOfColumns();
+
+    int k = 0;
+    if ((Columns1 == Columns2) && (Rows1 == Rows2)) {
+        for (int i = 0; i < Rows1; i++) {
+            for (int j = 0; j < Columns1; j++) {
+                if (aMtx[i][j] != bMtx[i][j]) k++;
             }
         }
     }
-    A().setItsValues(pvals);
-    A().setItsCols(pcols);
-    A().setItsRows(prows);
-    A().setLength(size);
-    A().setItsNumberOfRows(rows);
-    A().setItsNumberOfColumns(cols);
-return A;
-
+    if (k == 0) {
+        cout << "Matrices are equal" << endl;
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
-int Matrix::countNonzeros(int **arr, int rows, int cols) {
-    int count = 0;
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            if (arr[i][j] != 0) {
-                count++;
+int operator!=(const Matrix &a, const Matrix &b) {
+    int **aMtx = a.toNormalMtx();
+    int **bMtx = b.toNormalMtx();
+
+    int Rows1 = a.getItsNumberOfRows();
+    int Columns1 = a.getItsNumberOfColumns();
+    int Rows2 = b.getItsNumberOfRows();
+    int Columns2 = b.getItsNumberOfColumns();
+
+    int k = 0;
+    if ((Columns1 == Columns2) && (Rows1 == Rows2)) {
+        for (int i = 0; i < Rows1; i++) {
+            for (int j = 0; j < Columns1; j++) {
+                if (aMtx[i][j] != bMtx[i][j]) k++;
             }
         }
     }
-    return count;
+    if (k == 0) {
+        cout << "Matrices are equal" << endl;
+        return 0;
+    } else {
+        return 1;
+        cout << "Matrices are equal" << endl;
+    }
 }
+
+ostream &operator<<(ostream &out, const Matrix &matrix) {
+    int *pRows;
+    int *pCols;
+    int *pValues;
+    pRows = matrix.getRows();
+    pCols = matrix.getCols();
+    pValues = matrix.getValues();
+    int rowsNumber = matrix.getItsNumberOfRows();
+    int colsNumber = matrix.getItsNumberOfColumns();
+
+
+    int bigIter = 0;
+    for (int i = 0; i < rowsNumber; i++) {
+        cout << endl;
+        for (int j = 0; j < colsNumber; j++) {
+            if (i == pRows[bigIter] && j == pCols[bigIter]) {
+                out << pValues[bigIter] << " ";
+                bigIter++;
+            } else {
+                out << "0 ";
+            }
+        }
+    }
+
+    return out;
+}
+
+
+
+
 
 
